@@ -51,6 +51,16 @@ def doOCR(email):
 
     user = User.query.filter_by(email=email).first()
 
+    if not user :
+        return make_response(jsonify({
+            "message":"User not found"
+        }),400)
+    
+    if user.filename == "" or not user.filename:
+        return make_response(jsonify({
+            "message":"User doesn't upload file yet"
+        }),400)
+    
     front, back = doRequestOCR(user.filename)
     
     subjects = front
@@ -213,5 +223,119 @@ def upload(email):
             return make_response(jsonify({"message":str(e)}), 500)
 
 
-        
-        
+@app.route("/getavg/<string:email>",methods=['GET'])
+def getAVG(email): 
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return make_response(jsonify({
+            "message": "User not found"
+        }),404)
+
+    if len(user.subjects) == 0:
+        return make_response(jsonify({
+            "message": "Subjects not found"
+        }),404)
+    
+    groupMap = {
+                    'ท': 'ภาษาไทย',
+                    'ส': 'สังคมศึกษา',
+                    'ค': 'คณิตศาสตร์',
+                    'ว': 'วิทยาศาสตร์',
+                    'อ': 'ภาษาต่างประเทศ',
+                    'พ': 'สุขศึกษาและพลศึกษา',
+                    'ศ': 'ศิลปะ',
+                    'ง': 'การงานอาชีพ',
+                    'I': 'การศึกษาค้นคว้าด้วยตนเอง',
+                    'ญ': 'ภาษาต่างประเทศ',
+                    'จ': 'ภาษาต่างประเทศ',
+                    'ฝ': 'ภาษาต่างประเทศ',
+                    'ย': 'ภาษาต่างประเทศ',
+
+                }
+    
+    data = {
+        'ภาษาไทย': {
+            'gpax':0,
+            'unit':0,
+            'quantity':0
+        },
+        'สังคมศึกษา': {
+            'gpax':0,
+            'unit':0,
+            'quantity':0
+        },
+        'คณิตศาสตร์': {
+            'gpax':0,
+            'unit':0,
+            'quantity':0
+        },
+        'วิทยาศาสตร์': {
+            'gpax':0,
+            'unit':0,
+            'quantity':0
+        },
+        'ภาษาต่างประเทศ': {
+            'gpax':0,
+            'unit':0,
+            'quantity':0
+        },
+        'สุขศึกษาและพลศึกษา': {
+            'gpax':0,
+            'unit':0,
+            'quantity':0
+        },
+        'ศิลปะ': {
+            'gpax':0,
+            'unit':0,
+            'quantity':0
+        },
+        'การงานอาชีพ': {
+            'gpax':0,
+            'unit':0,
+            'quantity':0
+        },
+        'การศึกษาค้นคว้าด้วยตนเอง': {
+            'gpax':0,
+            'unit':0,
+            'quantity':0
+        },
+        'อื่นๆ':{
+            "subjects":[]
+        }
+    }
+
+    totalUnit = 0
+    totalGpax = 0
+
+    for subject in user.subjects:
+        cate = groupMap.get(subject.id[0], 'อื่นๆ')
+
+        if cate == 'อื่นๆ':
+            data[cate]['subjects'].append({
+                "id": subject.id,
+                "name": subject.name,
+                "unit": subject.unit,
+                "grade": subject.grade
+            })
+            continue
+        else:
+            score = data[cate]['gpax'] * data[cate]['unit'] + subject.grade * subject.unit
+            data[cate]['unit'] += subject.unit
+            data[cate]['gpax'] = round(score / data[cate]['unit'], 3)
+            
+        totalGpax = (totalGpax * totalUnit) + (subject.grade * subject.unit)
+        totalUnit += subject.unit
+
+        if totalUnit > 0:
+            totalGpax = round(totalGpax / totalUnit, 3)
+
+    return jsonify({
+        "message": "Successful get avg",
+        "data": {
+            "totalGpax": totalGpax,
+            "totalUnit": totalUnit,
+            "categoryList": list(set(groupMap.values())),
+            "categoryData": data
+        }
+    }), 200
