@@ -1,7 +1,7 @@
 from sqlite3 import IntegrityError
 from flask import request, jsonify, render_template, make_response
 from src import app,db,ALLOWED_EXTENSIONS,bcrypt,create_access_token,csrf
-from src.model import User,Subject
+from src.model import User,Subject, Report
 from werkzeug.utils import secure_filename
 import os
 from .ocr_model.resource.main import doRequestOCR
@@ -35,7 +35,7 @@ def getUserInfo(email):
         user_info = {
             "email": user.email,
             "filename": user.filename,
-            "subjects": subjects
+            "subjects": subjects,
         }
 
         return make_response(jsonify(user_info), 200)
@@ -339,3 +339,69 @@ def getAVG(email):
             "categoryData": data
         }
     }), 200
+
+
+
+@app.route("/report/<string:email>", methods=["POST"])
+@csrf.exempt
+def report(email):
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return make_response(jsonify({
+            "message": "User not found"
+        }),404)
+    
+
+    category = request.json.get("category")
+    report = str(request.json.get("report"))
+
+
+    if not category or not report or report.strip() == "":
+        return make_response(jsonify({
+            "message":"Missing category or report message"
+        }),400)
+
+
+    new_report = Report(category=category, report = report, user_id = user.id)
+
+
+    try:
+        db.session.add(new_report)
+        db.session.commit()
+
+        return make_response(jsonify({
+            "message": "Report submitted successfully"
+        }), 200)
+    except Exception as e:
+        return make_response(jsonify({
+            "message":e
+        }),500)
+
+
+@app.route("/get_report/<string:email>", methods=["GET"])
+def get_report(email):
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return make_response(jsonify({
+            "message": "User not found"
+        }),404)
+    
+
+    if len(user.reports) == 0:
+        return make_response(jsonify({
+            "message":"There is no report"
+        }),400)
+    
+    data = []
+    
+    for report in Report.query.filter_by(user_id = user.id).all():
+        data.append({
+            "category":report.category,
+            "report": report.report
+        })
+
+    return make_response(jsonify({
+        "data": data
+    }),200)

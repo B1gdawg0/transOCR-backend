@@ -8,6 +8,7 @@ class User(db.Model):
     filename = db.Column(db.String, nullable = True)
 
     subjects = db.relationship('Subject', back_populates='user')
+    reports = db.relationship('Report', back_populates = 'user')
 
 
 class Subject(db.Model):
@@ -19,3 +20,12 @@ class Subject(db.Model):
     user_id = db.Column(db.Integer, ForeignKey('user.id'))
 
     user = db.relationship('User', back_populates='subjects')
+
+class Report(db.Model):
+    id = db.Column(db.Integer, primary_key = True)
+    category = db.Column(db.String, nullable = False)
+    report= db.Column(db.String(500), nullable = False)
+    user_id = db.Column(db.Integer, ForeignKey('user.id'))
+
+
+    user = db.relationship('User', back_populates='reports')
