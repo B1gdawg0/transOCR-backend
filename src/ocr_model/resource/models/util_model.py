@@ -5,11 +5,10 @@ from ..data import preprocess
 import re
 import os
 
-
-os.environ["TESSDATA_PREFIX"] = "src/ocr_model/data/model/tesseract/build/tessdata"
-front_model = YOLO(Path("src/ocr_model/data/model/yolo/front-model.pt"))
-back_model = YOLO(Path("src/ocr_model/data/model/yolo/back-model.pt"))
-tesseract_path = Path("src/ocr_model/data/model/tesseract/build/tesseract")
+os.environ["TESSDATA_PREFIX"] = "data/model/tesseract/build/tessdata"
+front_model = YOLO(Path("data/model/yolo/front-model.pt"))
+back_model = YOLO(Path("data/model/yolo/back-model.pt"))
+tesseract_path = Path("data/model/tesseract/build/tesseract")
 
 tesseract_config = r"--oem 3 --psm 6"
 pytesseract.pytesseract.tesseract_cmd = tesseract_path

@@ -8,12 +8,14 @@ def text_for_numeric(text: str, course_name: str):
   return text
 
 def edit_courseID(courseID: str):
-  if courseID[0] in ['1']:
+  if courseID[0] in ['1', '!', 'เ']:
       courseID =  "I" + courseID[1:]
   if courseID[0] in ['า', '7']:
     courseID =  "ว" + courseID[1:]
   if courseID[0] in ['ล']:
     courseID =  "ส" + courseID[1:]
+  if courseID[0] in ['@', '0']:
+     courseID = "อ" + courseID[1:]
   return courseID
 
 def get_partition(n: int):
@@ -60,22 +62,22 @@ def recover_error(courses_df: pd.core.frame.DataFrame, image_dict: dict):
   #best bigdog the core engineer. always love you my bois
   error_df = util.get_error(courses_df).reset_index(drop=True)
   for error_record in error_df.values:
-    print(error_record)
     section_idx = error_record[2]
     section_image = image_dict[int(section_idx[0])]
 
     pads = [12, 10, 8, 6, 4]
     for pad in pads:
         focus_image = focus_subject(section_image, int(section_idx[1:]), pad)
+        # focus_image.show()
         focus_text = util_model.images_to_texts({section_idx[0]: focus_image})
         focus_df = util.make_course(focus_text)
         focus_df = util.get_non_error(focus_df)
-        is_help = True if (error_record[3] in focus_df['id'].to_list()) else False
+        is_help = True if (error_record[3] in focus_df['ref'].to_list()) else False
         if is_help:
-            correct_record = focus_df.loc[focus_df['id'] == error_record[3]]
+            correct_record = focus_df.loc[focus_df['ref'] == error_record[3]]
             correct_record = correct_record.reset_index(drop=True)
             correct_record['section'] =  section_idx
-            courses_df[courses_df['id'] == correct_record['id'][0]] = correct_record.loc[0].to_list()
+            courses_df[courses_df['ref'] == correct_record['ref'][0]] = correct_record.loc[0].to_list()
             break
     error_df = util.get_error(courses_df).reset_index(drop=True)
   return courses_df

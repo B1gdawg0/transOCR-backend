@@ -14,6 +14,9 @@ def read_image(image_path:str, filename:str):
             continue
     raise Exception("Unformat Image")
 
+def read_csv(dir_path, filename):
+    return pd.read_csv(dir_path/(filename), dtype=str)
+
 def export_df_to_csv(csv_path: str, filename: str, df: pd.core.frame.DataFrame):
     csv_file_path = Path(csv_path + "/" + filename + ".csv")
     df.to_csv(csv_file_path, index=False)
@@ -41,7 +44,7 @@ def csv_to_json(json_path:str , csv_path:str, filename:str):
         json.dump(json_data, json_file, ensure_ascii=False, indent=4)
 
 def get_thai_alphabet():
-    thai_alphabet = [chr(i) for i in range(ord('ก'), ord('ฮ') + 1)]
+    thai_alphabet = ["ก", "ข", "ค","ญ", "ฐ", "ท", "ย", "พ", "ว", "อ"]  
     ls = []
     for i in thai_alphabet:
         str = i
@@ -50,3 +53,4 @@ def get_thai_alphabet():
             ls.append(str)
             str = i
     return ls
+

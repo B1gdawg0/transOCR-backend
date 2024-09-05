@@ -10,17 +10,27 @@ def filter_course(text: str):
     return text.replace("|", " ")
   return 
 
+def get_line_ref(text: str):
+   text = text.strip()
+   pattern = r'[\u0E00-\u0E7F]{2}'
+   result = re.findall(pattern, text)
+   return result[0]
+
+
 def get_courseID(text: str):
-  pattern = r'[\u0E00-\u0E7F|0-9]{1}[0-9]{5}'
+  pattern = r'[\u0E00-\u0E7F|0-9|\!|\@]{1}[0-9]{5}'
   result = re.findall(pattern=pattern, string=text)
   if result:
-    return postprocess.edit_courseID(result[0])
+    result = postprocess.edit_courseID(result[0])
+    pattern = r'[ท|ส|ค|ว|อ|พ|ศ|ง|I|ญ|จ|ฝ|ย]'
+    if re.findall(pattern=pattern, string=result):
+       return result
   print("Error from get_courseID")
   print(text)
   return "999"
 
 def get_course_name(text: str):
-  pattern = pattern = r'(?: [\u0E00-\u0E7F|A-z|\/]{3,})+'
+  pattern = pattern = r'(?:[\u0E00-\u0E7F|A-z|\/]{3,})+'
   result = re.findall(pattern=pattern, string=text)
   if result:
       return result[0].strip()
@@ -45,20 +55,28 @@ def get_numeric(text: str):
     print(text)
     return "999"
   result = result.replace(".", ".5")
-  result = remove_unallowc("123456 ", result)
-  result = result.replace('6', '4')
+  result = remove_unallowc("12345 ", result)
+  # result = result.replace('6', '4')
   return result.strip()
 
-def get_unit(num_list: list):
+def get_back_unit(num_list: list):
   unit = num_list[0]
   if unit > 50:
      unit/=100
+  return unit
+
+def get_unit(num_list: list):
+  unit = num_list[0]
+  if unit > 4:
+     return 999
   return unit
 
 def get_grade(num_list: list):
   grade = num_list[1]
   if grade > 4:
      grade /= 100
+  if grade > 4:
+     return 999
   return grade
 
 def get_unique_characters(text):
@@ -79,6 +97,7 @@ def get_grade_and_unit(text: str):
       blocks[idx] = digit
     unit = blocks[0]
     grade = blocks[1]
+
   return [unit, grade]
 
 def delete_not_cat(text: str):
@@ -120,7 +139,7 @@ def get_GPA(text: str):
    contain_cat = words.apply(delete_not_cat).dropna()
    cats = contain_cat.apply(get_cat)
    weight = contain_cat.apply(get_back_weight)
-   unit = weight.apply(get_unit)
+   unit = weight.apply(get_back_unit)
    grade = weight.apply(get_grade)
    gpa_dict = {"ocr": contain_cat.to_list(),
                "category": cats.to_list(),
@@ -132,6 +151,7 @@ def get_GPA(text: str):
 def get_course(text: str, idx: int):
   words = pd.Series(text.split('\n'))
   courses = words.apply(filter_course).dropna()
+  course_ref = courses.apply(get_line_ref)
   course_ids = courses.apply(get_courseID).dropna()
   course_names = courses.apply(get_course_name)
   course_numeric = courses.apply(get_numeric)
@@ -142,6 +162,7 @@ def get_course(text: str, idx: int):
   course_dict = {"ocr": courses.to_list(),
                  "numeric": course_numeric.to_list(),
                  "section": [f"{idx}{i:02d}" for i in range(courses.shape[0])],
+                 "ref": course_ref.to_list(),
                  "id": course_ids.to_list(),
                  "name": course_names.to_list(),
                  "unit": course_unit.to_list(),
