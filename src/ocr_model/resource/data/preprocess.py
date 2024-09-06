@@ -74,7 +74,7 @@ def add_line_reference(image, alphabets:list, font_dir:str, font_name:str):
 def pipeline(image):
     processed = denoise(image=image)
     processed = add_white_space(processed, 0.1)
-    processed = add_line_reference(processed, thai_alphabets, 'data/font', 'THSarabunNew.ttf')
+    processed = add_line_reference(processed, thai_alphabets, 'src/ocr_model/data/font', 'THSarabunNew.ttf')
     return processed
 
 
