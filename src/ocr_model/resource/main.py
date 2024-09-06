@@ -11,7 +11,7 @@ def turn_to_dict(df):
     }
     return json_data
 
-def pdf_to_png(pdf_path, dpi=300):
+def pdf_to_png(pdf_path, dpi=95):
 
     images = convert_from_path(pdf_path, dpi)
     print(type(images[0]))

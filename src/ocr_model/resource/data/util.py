@@ -30,7 +30,8 @@ def get_courseID(text: str):
   return "999"
 
 def get_course_name(text: str):
-  pattern = pattern = r'(?:[\u0E00-\u0E7F|A-z|\/]{3,})+'
+  text = postprocess.remove_courseID(text, get_courseID(text))
+  pattern = r'(\s[\u0E00-\u0E7F|A-z|\/|0-9]{3,})+' 
   result = re.findall(pattern=pattern, string=text)
   if result:
       return result[0].strip()
@@ -45,8 +46,9 @@ def remove_unallowc(allowed_chars: str, text: str):
   return result
 
 def get_numeric(text: str):
-  text = postprocess.text_for_numeric(text, get_course_name(text))
-  pattern = r'[\s]{2,}.+'
+  text = postprocess.remove_course_name(text, get_course_name(text))
+  text = text.replace("!", " ")
+  pattern = r'[\s]{1,}.+'
   result = re.findall(pattern=pattern, string=text)
   if result:
     result = result[0]
@@ -54,9 +56,7 @@ def get_numeric(text: str):
     print("Error from get_numeric")
     print(text)
     return "999"
-  result = result.replace(".", ".5")
   result = remove_unallowc("12345 ", result)
-  # result = result.replace('6', '4')
   return result.strip()
 
 def get_back_unit(num_list: list):
@@ -67,17 +67,15 @@ def get_back_unit(num_list: list):
 
 def get_unit(num_list: list):
   unit = num_list[0]
-  if unit > 4:
-     return 999
-  return unit
+  num = postprocess.clip_grade_unit(unit)
+  return num
 
 def get_grade(num_list: list):
   grade = num_list[1]
-  if grade > 4:
-     grade /= 100
-  if grade > 4:
-     return 999
-  return grade
+  num = postprocess.clip_grade_unit(grade)
+  if num == 0.5:
+     num = 999
+  return num
 
 def get_unique_characters(text):
     return ''.join(sorted(set(text)))

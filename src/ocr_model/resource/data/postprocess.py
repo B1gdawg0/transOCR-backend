@@ -2,10 +2,27 @@ import pandas as pd
 from . import util
 from ..models import util_model
 
-def text_for_numeric(text: str, course_name: str):
+def remove_course_name(text: str, course_name: str):
   text = text.replace(course_name, "")
   text = text.replace('ง', '4')
   return text
+
+def remove_courseID(text: str, courseID: str):
+   text = text.replace(courseID, "")
+   return text
+
+def clip_grade_unit(num):
+  if num > 4:
+     num =  999
+  elif num < 4 and num > 3:
+     num = 3.5
+  elif num < 3 and num > 2:
+     num = 2.5
+  elif num < 2 and num > 1:
+     num = 1.5
+  elif num < 1 and num > 0:
+     num = 0.5
+  return num
 
 def edit_courseID(courseID: str):
   if courseID[0] in ['1', '!', 'เ']:
@@ -14,8 +31,10 @@ def edit_courseID(courseID: str):
     courseID =  "ว" + courseID[1:]
   if courseID[0] in ['ล']:
     courseID =  "ส" + courseID[1:]
-  if courseID[0] in ['@', '0']:
+  if courseID[0] in ['@', '0', 'ธ']:
      courseID = "อ" + courseID[1:]
+  if courseID[0] in ['ห']:
+     courseID = "ท" + courseID[1:] 
   return courseID
 
 def get_partition(n: int):
@@ -77,7 +96,7 @@ def recover_error(courses_df: pd.core.frame.DataFrame, image_dict: dict):
             correct_record = focus_df.loc[focus_df['ref'] == error_record[3]]
             correct_record = correct_record.reset_index(drop=True)
             correct_record['section'] =  section_idx
-            courses_df[courses_df['ref'] == correct_record['ref'][0]] = correct_record.loc[0].to_list()
+            courses_df[(courses_df['ref'] == correct_record['ref'][0]) & (courses_df['section'] == correct_record['section'][0])] = correct_record.loc[0].to_list()
             break
     error_df = util.get_error(courses_df).reset_index(drop=True)
   return courses_df
