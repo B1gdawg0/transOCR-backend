@@ -1,26 +1,35 @@
+import os
+from dotenv import load_dotenv
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, create_access_token
-from flask_wtf.csrf import CSRFProtect
+from flask_jwt_extended import JWTManager
 
+load_dotenv()
+JWT_SECRET = os.getenv("JWT_SECRET")
+SECRET_KEY = os.getenv("SECRET_KEY")
+UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER")
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///user.db'
-app.config['JWT_SECRET_KEY'] = 'f28a27d5e7f3553f8171c7004dd28bceded5518103559304df03f6a6e1899850'
-app.config['SECRET_KEY'] = '7fa334fcc1759fe37db255a2a065bdf4692ab2b1021cc9462b44d41b72687464'
+app.config['JWT_SECRET_KEY'] = JWT_SECRET
+app.config['SECRET_KEY'] = SECRET_KEY
 app.config['WTF_CSRF_ENABLED'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'src/ocr_model/data/raw'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
-csrf = CSRFProtect(app)
 
 db = SQLAlchemy(app)
 
+from .auth import auth_group
+app.register_blueprint(auth_group, url_prefix = '/auth')
 
-from src import routes
+from .user import user_group
+app.register_blueprint(user_group, url_prefix="/user")
+
+from src.user import routes

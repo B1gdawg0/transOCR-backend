@@ -1,23 +1,64 @@
+from functools import wraps
 from sqlite3 import IntegrityError
 from flask import request, jsonify, render_template, make_response
-from src import app,db,ALLOWED_EXTENSIONS,bcrypt,create_access_token,csrf
-from src.model import User,Subject, Report
+import jwt
+from src import app,db,ALLOWED_EXTENSIONS,JWT_SECRET
+from ..model import User,Subject, Report
 from werkzeug.utils import secure_filename
 import os
-from .ocr_model.resource.main import doRequestOCR
+from ..ocr_model.resource.main import doRequestOCR
+from . import user_group
 
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def jwt_check(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get("Authorization")
+        # token = request.cookies.get('auth_token')
 
-@app.route("/")
+        if not token:
+            return make_response(
+                jsonify({
+                    "message":"Token is missing"
+                }),401
+            )
+
+        try:
+            token = token.split()[1]
+            payload = jwt.decode(token, JWT_SECRET.encode("utf-8"), algorithms=["HS256"])
+
+            request.email = payload.get("email")
+
+        except jwt.ExpiredSignatureError:
+            return make_response(jsonify({
+                "message":"Token has expired"
+            }),401)
+        
+        except jwt.InvalidTokenError as e:
+            print(e)
+            return make_response(jsonify({
+                "message":"Invalid Token"
+            }),401)
+        return f(*args, **kwargs)
+    return decorated
+
+@user_group.route("/")
 def defaultpage():
     return render_template("default.html")
 
-@app.route("/info/<string:email>", methods=["GET"])
+@user_group.get("/<string:email>")
+@jwt_check
 def getUserInfo(email):
+
+    if request.email != email:
+        return make_response(jsonify({
+            "message":"Token doesn't match"
+        }),403)
+
     user = User.query.filter_by(email=email).first()
 
     if user:
@@ -45,9 +86,14 @@ def getUserInfo(email):
         }), 404)
 
 
-@app.route("/doOCR/<string:email>", methods=['PATCH'])
-@csrf.exempt
+@user_group.patch("/doOCR/<string:email>")
+@jwt_check
 def doOCR(email):
+
+    if request.email != email:
+        return make_response(jsonify({
+            "message":"Token doesn't match"
+        }),403)
 
     user = User.query.filter_by(email=email).first()
 
@@ -99,85 +145,15 @@ def doOCR(email):
         }), 404)
 
 
-@app.route("/register",methods=["POST"])
-@csrf.exempt
-def register():
-    if not request.json:
-        return make_response(jsonify({
-            "message":"there is empty request"
-        }),400)
-
-    email = request.json.get("email")
-    password = request.json.get("password")
-
-    if not email or not password:
-        return jsonify({
-            "message":"need to fill every data before submit"
-        },400)
-
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-
-    new_users = User(email=email, password=hashed_password)
-    
-
-    try:
-        db.session.add(new_users)
-        db.session.commit()
-
-        message = "User created successfully"
-        data = {
-            "id": new_users.id,
-            "email": new_users.email,
-            "password": new_users.password,
-            "filename":new_users.filename
-            }
-        return make_response(jsonify({
-            "message":message,
-            "data":data
-        }))
-    
-    except IntegrityError as e:
-        db.session.rollback()
-        return make_response(jsonify({"message": "Email already exists"}), 400)
-    
-    except Exception as e :
-        db.session.rollback()
-        return make_response(jsonify({"message":str(e)}), 500)
-
-@app.route('/login', methods=['POST'])
-@csrf.exempt
-def login():
-    email = request.json.get("email")
-    password = request.json.get("password")
-
-    if not email and not password:
-        return make_response(jsonify({
-            "message":"Must fill email or password before login"
-        },400))
-    
-    user = User.query.filter_by(email=email).first()
-
-    if not user :
-        return make_response(jsonify({
-            "message":"User not found"
-        }),404)
-    
-    if not bcrypt.check_password_hash(user.password, password):
-        return make_response(
-            jsonify({
-                "message":"Invalid password"
-            }),401
-        )
-    
-    token = create_access_token(identity=email)
-    return jsonify({
-        "email":email,
-        "token": token
-        }), 200
-
-@app.route("/upload/<string:email>", methods=['PATCH'])
-@csrf.exempt
+@user_group.patch("/upload/<string:email>")
+@jwt_check
 def upload(email):
+
+    if request.email != email:
+        return make_response(jsonify({
+            "message":"Token doesn't match"
+        }),403)
+    
     user = User.query.filter_by(email = email).first()
 
     if not user:
@@ -194,15 +170,15 @@ def upload(email):
         return make_response(jsonify(
             {
                 "message":"There is no file part"
-            },401
-        ))
+            }
+        ),401)
     
     if file.filename == "":
         return make_response(jsonify(
             {
                 "message":"There is empty request"
-            },402
-        ))
+            }
+        ),402)
     elif file and allowed_file(file.filename):
 
 
@@ -216,15 +192,22 @@ def upload(email):
             return make_response(jsonify(
                 {
                     "message":"Successful upload file"
-                },200
-            ))
+                }
+            ),200)
         except Exception as e :
             db.session.rollback()
             return make_response(jsonify({"message":str(e)}), 500)
 
 
-@app.route("/getavg/<string:email>",methods=['GET'])
+@user_group.get("/getavg/<string:email>")
+@jwt_check
 def getAVG(email): 
+
+    if request.email != email:
+        return make_response(jsonify({
+            "message":"Token doesn't match"
+        }),403)
+    
     user = User.query.filter_by(email=email).first()
 
     if not user:
@@ -342,9 +325,16 @@ def getAVG(email):
 
 
 
-@app.route("/report/<string:email>", methods=["POST"])
-@csrf.exempt
+@user_group.post("/report/<string:email>")
+@jwt_check
 def report(email):
+
+    if request.email != email:
+        return make_response(jsonify({
+            "message":"Token doesn't match"
+        }),403)
+    
+
     user = User.query.filter_by(email=email).first()
 
     if not user:
@@ -379,8 +369,15 @@ def report(email):
         }),500)
 
 
-@app.route("/get_report/<string:email>", methods=["GET"])
+@user_group.get("/report/<string:email>")
+@jwt_check
 def get_report(email):
+
+    if request.email != email:
+        return make_response(jsonify({
+            "message":"Token doesn't match"
+        }),403)
+    
     user = User.query.filter_by(email=email).first()
 
     if not user:
